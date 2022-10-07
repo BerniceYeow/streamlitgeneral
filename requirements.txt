@@ -30,4 +30,3 @@ pycaret
 sweetviz
 helper_functions
 streamlit-aggrid
-malaya
