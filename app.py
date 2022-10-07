@@ -9,8 +9,6 @@ Created on Wed Nov 25 11:47:10 2020
 import pandas as pd
 
 
-import malaya
-
 import nltk
 from nltk.corpus import stopwords
 
@@ -86,149 +84,185 @@ def main():
     if uploaded_file is not None:
         df = load_data(uploaded_file)
 
-        AgGrid(df)
+        @st.cache
+        def convert_df(df):
+            # IMPORTANT: Cache the conversion to prevent computation on every rerun
+            return df.to_csv(index=False).encode('utf-8')
 
-        """
-        this function selects the text feature from the uploaded csv file
-        ----------
-        df: A pandas Dataframe 
-        """
-        text_column = st.selectbox('Select the text column',(list(df.columns)))
-        
-        df = df[text_column]
-        data =  pd.DataFrame(df)
+
+        df1 = pd.DataFrame(df)
+
+        gb = GridOptionsBuilder.from_dataframe(df1)
+        gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
+        gb.configure_selection(selection_mode="multiple", use_checkbox=True)
+        gb.configure_side_bar()
+        gridoptions = gb.build()
+
+        response = AgGrid(
+            df1,
+            height=200,
+            gridOptions=gridoptions,
+            enable_enterprise_modules=True,
+            update_mode=GridUpdateMode.MODEL_CHANGED,
+            data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+            fit_columns_on_grid_load=False,
+            header_checkbox_selection_filtered_only=True,
+            use_checkbox=True)
+
+        # st.write(type(response))
+        # st.write(response.keys())
+
+        v = response['selected_rows']
+        if v:
+            st.write('Selected rows')
+            st.dataframe(v)
+            dfs = pd.DataFrame(v)
+            csv = convert_df(dfs)
+            df = dfs
+
+                
+
+            """
+            this function selects the text feature from the uploaded csv file
+            ----------
+            df: A pandas Dataframe 
+            """
+            text_column = st.selectbox('Select the text column',(list(df.columns)))
             
-
-        
-        st.write("Welcome to the DQW for Text analysis. ",
-                    "As unstructured data, text input analysis for ",
-                    "NLP models is of crucial importance. This dashboard ",
-                    "offers visualisation of descriptive statistics of a ",
-                    "text input file uploaded in form of csv or txt. ",
-                    "Please select input method on the left, pick if you wish to ",
-                    "preprocess it and select the plot you want to use to analyse it.")
-        
-        # Side panel setup
-        # Step 1 includes Uploading and Preprocessing data (optional)
-        # display_app_header(main_txt = "Step 1",
-        #                 sub_txt= "Upload data",
-        #                 is_sidebar=True)
-        
-        # data_input_mthd = st.sidebar.radio("Select Data Input Method",
-        #                                 ('Copy-Paste text', 
-        #                                     'Upload a CSV file',
-        #                                     'Import a json file'))
-        
-        # st.subheader('Choose data to analyse :alembic:')
-        # data,txt  = check_input_method(data_input_mthd)
-        
-        # data,text_column = select_text_feature(data)
-        
-        # display_app_header_1(sub_txt= "Preprocess data",
-        #                 is_sidebar=True)
-        
-        # clean_data_opt = st.sidebar.radio("Choose wisely",
-        #                                 ('Skip preprocessing', 
-        #                                 'Run preprocessing'))
-        
-        # # clean data #######
-        # if clean_data_opt=='Skip preprocessing':
-        #         st.subheader('Using Raw data :cut_of_meat:')  #Raw data header
+            df = df[text_column]
+            data =  pd.DataFrame(df)
                 
-        #         display_app_header(main_txt = "Step 2",
-        #             sub_txt= "Analyse data",
-        #             is_sidebar=True)
-                
-        #         selected_plot = st.sidebar.radio(
-        #         "Choose 1 plot", ('Length of text', 
-        #                         'Word count',
-        #                         'Average word length',
-        #                         'Stopwords',
-        #                         'Unique word count',
-        #                         'N-grams',
-        #                         'Topic modelling',
-        #                         'Wordcloud',
-        #                         'Sentiment',
-        #                         'NER',
-        #                         'POS',
-        #                         'Complexity Scores')
-        #         )
-                
-        # else:
-        st.subheader('Using Clean Data :droplet:')  #Clean data header
+            selected_plot = st.sidebar.radio(
+            "Choose 1 plot", ('Length of text', 
+                            'Word count',
+                            'Average word length',
+                            'Unique word count',
+                            'N-grams',
+                            'Topic modelling',
+                            'Wordcloud',
+                            'Sentiment',
+                            'NER',
+                            'POS',
+                            'Complexity Scores')
+            )
+            # final step
+            st.download_button(
+                label="Download clean data",
+                data=data.to_csv().encode('utf-8'),
+                file_name='clean_data.csv',
+                mime='text/csv',
+            )
 
-        data = pp.clean_data(data,feature=text_column)
-        st.success('Data cleaning successfuly done!')
-        
-        image = Image.open("text_eda/pp.png")
-        st.image(image, caption='Preprocessing steps done by DQW')
-
-        # display_app_header(main_txt = "Step 2",
-        #                 sub_txt= "Analyse data",
-        #                 is_sidebar=True)
             
-        selected_plot = st.sidebar.radio(
-        "Choose 1 plot", ('Length of text', 
-                        'Word count',
-                        'Average word length',
-                        'Unique word count',
-                        'N-grams',
-                        'Topic modelling',
-                        'Wordcloud',
-                        'Sentiment',
-                        'NER',
-                        'POS',
-                        'Complexity Scores')
-        )
-        # final step
-        st.download_button(
-            label="Download clean data",
-            data=data.to_csv().encode('utf-8'),
-            file_name='clean_data.csv',
-            mime='text/csv',
-        )
-                        
-        st.subheader('A preview of input data is below, please select plot to start analysis :bar_chart:')
-        st.write(data.head(5))
-        
-        plots.plot(selected_plot,
-                data,
-                text_column)
-        
-        def tokenize(text):
-            lda_tokens = []
-            tokens = parser(text)
-            for token in tokens:
-                if token.orth_.isspace():
-                    continue
-                elif token.like_url:
-                    lda_tokens.append('URL')
-                elif token.orth_.startswith('@'):
-                    lda_tokens.append('SCREEN_NAME')
+            st.write("Welcome to the DQW for Text analysis. ",
+                        "As unstructured data, text input analysis for ",
+                        "NLP models is of crucial importance. This dashboard ",
+                        "offers visualisation of descriptive statistics of a ",
+                        "text input file uploaded in form of csv or txt. ",
+                        "Please select input method on the left, pick if you wish to ",
+                        "preprocess it and select the plot you want to use to analyse it.")
+            
+            # Side panel setup
+            # Step 1 includes Uploading and Preprocessing data (optional)
+            # display_app_header(main_txt = "Step 1",
+            #                 sub_txt= "Upload data",
+            #                 is_sidebar=True)
+            
+            # data_input_mthd = st.sidebar.radio("Select Data Input Method",
+            #                                 ('Copy-Paste text', 
+            #                                     'Upload a CSV file',
+            #                                     'Import a json file'))
+            
+            # st.subheader('Choose data to analyse :alembic:')
+            # data,txt  = check_input_method(data_input_mthd)
+            
+            # data,text_column = select_text_feature(data)
+            
+            # display_app_header_1(sub_txt= "Preprocess data",
+            #                 is_sidebar=True)
+            
+            # clean_data_opt = st.sidebar.radio("Choose wisely",
+            #                                 ('Skip preprocessing', 
+            #                                 'Run preprocessing'))
+            
+            # # clean data #######
+            # if clean_data_opt=='Skip preprocessing':
+            #         st.subheader('Using Raw data :cut_of_meat:')  #Raw data header
+                    
+            #         display_app_header(main_txt = "Step 2",
+            #             sub_txt= "Analyse data",
+            #             is_sidebar=True)
+                    
+            #         selected_plot = st.sidebar.radio(
+            #         "Choose 1 plot", ('Length of text', 
+            #                         'Word count',
+            #                         'Average word length',
+            #                         'Stopwords',
+            #                         'Unique word count',
+            #                         'N-grams',
+            #                         'Topic modelling',
+            #                         'Wordcloud',
+            #                         'Sentiment',
+            #                         'NER',
+            #                         'POS',
+            #                         'Complexity Scores')
+            #         )
+                    
+            # else:
+            st.subheader('Using Clean Data :droplet:')  #Clean data header
+
+            data = pp.clean_data(data,feature=text_column)
+            st.success('Data cleaning successfuly done!')
+            
+            image = Image.open("text_eda/pp.png")
+            st.image(image, caption='Preprocessing steps done by DQW')
+
+            # display_app_header(main_txt = "Step 2",
+            #                 sub_txt= "Analyse data",
+            #                 is_sidebar=True)
+
+                            
+            st.subheader('A preview of input data is below, please select plot to start analysis :bar_chart:')
+            st.write(data.head(5))
+            
+            plots.plot(selected_plot,
+                    data,
+                    text_column)
+            
+            def tokenize(text):
+                lda_tokens = []
+                tokens = parser(text)
+                for token in tokens:
+                    if token.orth_.isspace():
+                        continue
+                    elif token.like_url:
+                        lda_tokens.append('URL')
+                    elif token.orth_.startswith('@'):
+                        lda_tokens.append('SCREEN_NAME')
+                    else:
+                        lda_tokens.append(token.lower_)
+                return lda_tokens   
+            
+            def get_lemma(word):
+                lemma = wn.morphy(word)
+                if lemma is None:
+                    return word
                 else:
-                    lda_tokens.append(token.lower_)
-            return lda_tokens   
-        
-        def get_lemma(word):
-            lemma = wn.morphy(word)
-            if lemma is None:
-                return word
-            else:
-                return lemma
-            
-        def get_lemma2(word):
-            return WordNetLemmatizer().lemmatize(word)
+                    return lemma
+                
+            def get_lemma2(word):
+                return WordNetLemmatizer().lemmatize(word)
 
-        def prepare_text_for_lda(text):
-            tokens = tokenize(text)
-            tokens = [token for token in tokens if len(token) > 4]
-            tokens = [token for token in tokens if token not in en_stop]
-            tokens = [get_lemma(token) for token in tokens]
-            return tokens
-        
-        data = data[data[text_column].notnull()]
-        input = prepare_text_for_lda(str(data[text_column]))
- 
+            def prepare_text_for_lda(text):
+                tokens = tokenize(text)
+                tokens = [token for token in tokens if len(token) > 4]
+                tokens = [token for token in tokens if token not in en_stop]
+                tokens = [get_lemma(token) for token in tokens]
+                return tokens
+            
+            data = data[data[text_column].notnull()]
+            input = prepare_text_for_lda(str(data[text_column]))
+    
 
 
 if __name__ == '__main__':
