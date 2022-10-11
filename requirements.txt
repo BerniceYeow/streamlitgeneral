@@ -15,6 +15,7 @@ pyLDAvis==2.1.2
 seaborn==0.11.1
 matplotlib==3.3.3
 sklearn==0.0
+scipy==1.5.4
 numpy==1.20.0rc1
 wordcloud==1.8.1
 tqdm==4.54.1
@@ -30,6 +31,3 @@ sweetviz
 helper_functions
 streamlit-aggrid
 stop_words
-Cython==0.28.3
-Scipy==1.1.0
-fpdf_py3k
