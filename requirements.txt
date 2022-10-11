@@ -31,3 +31,5 @@ sweetviz
 helper_functions
 streamlit-aggrid
 stop_words
+pandas==0.20.3
+cython==0.27.3
