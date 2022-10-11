@@ -32,3 +32,4 @@ streamlit-aggrid
 stop_words
 Cython==0.28.3
 Scipy==1.1.0
+fpdf_py3k
